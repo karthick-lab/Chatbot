@@ -31,6 +31,11 @@ def normalize(text):
 
 # 🧹 Prepare summary data
 def prepare_summary_data(df):
+    from datetime import datetime, timedelta
+    import pandas as pd
+    import re
+    import unicodedata
+
     def parse_excel_date(value):
         if isinstance(value, (int, float)):
             return datetime(1899, 12, 30) + timedelta(days=value)
@@ -41,55 +46,92 @@ def prepare_summary_data(df):
         else:
             return pd.NaT
 
+    def normalize(text):
+        text = str(text).lower()
+        text = ''.join(c for c in text if unicodedata.category(c)[0] != 'C')  # Remove control characters
+        text = text.replace('\xa0', ' ')  # Non-breaking space
+        text = text.replace('\n', ' ')
+        text = text.replace('\r', ' ')
+        text = text.replace('\t', ' ')
+        text = text.replace('\f', ' ')
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
+    # 📅 Parse date range
     start_date = parse_excel_date(df.iloc[0, 1])
     end_date = parse_excel_date(df.iloc[0, 4])
 
-    category_section = df.iloc[6:, [0, 1]].dropna()
+    # 📊 Extract category and amount section
+    category_section = df.iloc[6:, [0, 1]].copy()
     category_section.columns = ['category', 'amount']
+
+    # 🕵️ Inspect raw category values before normalization
+    print("Raw categories before normalization:", category_section['category'].dropna().tolist())
+
+    # 🧹 Normalize category names
     category_section['category'] = category_section['category'].apply(normalize)
-    category_section['amount'] = pd.to_numeric(category_section['amount'], errors='coerce').fillna(0)
+
+    # 💰 Clean and convert amount column
+    category_section['amount'] = (
+        category_section['amount']
+        .replace('[₹,]', '', regex=True)  # Remove ₹ and commas
+        .apply(lambda x: str(x).strip())  # Clean up whitespace
+        .apply(pd.to_numeric, errors='coerce')  # Convert to number
+        .fillna(0)
+    )
+
+    # 🧠 Build summary dictionary
     category_summary = category_section.set_index('category')['amount'].to_dict()
+
+    # 🧪 Debug: Check if 'house rent' was parsed correctly
+    print("House Rent amount:", category_summary.get("house rent", "Not found"))
+    print("Full category block:\n", df.iloc[6:, [0, 1]])
 
     return start_date, end_date, category_summary
 
 # 🧠 Generate suggestions
 def generate_suggestions_from_summary(category_summary, account_name, income):
     benchmarks = {
-        normalize('Raw Materials'): 0.40,
+        normalize('Raw Materials'): 0.15,
         normalize('Business Transportation'): 0.15,
-        normalize('Labour'): 0.25,
-        normalize('Rent For Business'): 0.20
+        normalize('Labour'): 0.20,
+        normalize('Rent For Business'): 0.15,
+        normalize('Business Accessories'): 0.10,
+        normalize('Business Gas'): 0.05,
+        normalize('Business Profit'): 0.20
     } if account_name.lower() == "business" else {
-        normalize('House Rent'): 0.12,
-        normalize('Eb Bill'): 0.0025,
-        normalize('Grocery'): 0.6,
-        normalize('Blinkit and Zepto expense'): 0.2,
-        normalize('Snacks'): 0.02,
-        normalize('Local Travel'): 0.02,
-        normalize('Home Town / Trip Travel'): 0.05,
-        normalize('Office food'): 0.05,
-        normalize('Outside Food'): 0.01,
-        normalize('Trip Outside Food'): 0.01,
-        normalize('Gas Cylinder'): 0.02,
-        normalize('Dress'): 0.03,
-        normalize('Mobile And Net Recharge'): 0.01,
-        normalize('Gifts'): 0.02,
-        normalize('House Accessories'): 0.03,
-        normalize('Mandatory Cosmetics'): 0.03,
-        normalize('Skin Care'): 0.03,
-        normalize('Fitness'): 0.03,
-        normalize('Medical Expense'): 0.10,
-        normalize('Electronic Gadgets'): 0.05,
-        normalize('Investment'): 0.23,
-        normalize('Entertainment Expense'): 0.03,
-        normalize('Entertainment Recharge(OTT)'): 0.02,
-        normalize('Nonveg'): 0.02,
-        normalize('Unknown'): 0.00,
-        normalize('Donation'): 0.02,
-        normalize('Savings'): 0.225,
-        normalize('Cab'): 0.01,
-        normalize('Petrol'): 0.01,
-        normalize('Education Expense'): 0.15
+        normalize('House Rent'): 0.0804,
+        normalize('Eb Bill'): 0.0017,
+        normalize('Grocery'): 0.0402,
+        normalize('Blinkit and Zepto expense'): 0.0134,
+        normalize('Snacks'): 0.0134,
+        normalize('Local Travel'): 0.0134,
+        normalize('Home Town / Trip Travel'): 0.0336,
+        normalize('Office food'): 0.0336,
+        normalize('Outside Food'): 0.0067,
+        normalize('Trip Outside Food'): 0.0067,
+        normalize('Gas Cylinder'): 0.0134,
+        normalize('Dress'): 0.0201,
+        normalize('Mobile And Net Recharge'): 0.0067,
+        normalize('Gifts'): 0.0134,
+        normalize('House Accessories'): 0.0201,
+        normalize('Mandatory Cosmetics'): 0.0201,
+        normalize('Skin Care'): 0.0201,
+        normalize('Fitness'): 0.0201,
+        normalize('Medical Expense'): 0.0670,
+        normalize('Electronic Gadgets'): 0.0336,
+        normalize('Investment'): 0.1541,
+        normalize('Entertainment Expense'): 0.0201,
+        normalize('Entertainment Recharge(OTT)'): 0.0134,
+        normalize('Nonveg'): 0.0134,
+        normalize('Unknown'): 0.0000,
+        normalize('Donation'): 0.0134,
+        normalize('Savings'): 0.1508,
+        normalize('Cab'): 0.0067,
+        normalize('Petrol'): 0.0067,
+        normalize('Education Expense'): 0.1005,
+        normalize('Astrology'): 0.1005,
+        normalize('Pooja Items'): 0.1005
     }
 
     suggestions = [f"📊 Personalized Suggestions for {account_name} Account:"]
@@ -117,7 +159,7 @@ def generate_suggestions_from_summary(category_summary, account_name, income):
             if category.lower() in ['investment', 'savings']:
                 suggestion = f"  - '{category}' contribution is on target (₹{actual:.2f} of ₹{expected:.2f}). Great consistency!"
             else:
-                suggestion = f"  - '{category}' spending is on target (₹{actual:.2f} of ₹{expected:.2f}). Well done!"
+                suggestion = f"  - '{category}' spending is on target (₹{actual:.2f} of ₹{expected:.2f}). Keep an eye on this category. Dont spend more. Save and invest or do some business to become rich "
 
         suggestions.append(suggestion)
 
@@ -367,6 +409,120 @@ def suggest_stocks_to_sell_dynamic(max_stocks=10):
     return suggestions
 
 
+import requests
+import re
+from datetime import datetime, timedelta
+
+import requests
+import re
+
+def fetch_gold_prices_goodreturns():
+    url = "https://www.goodreturns.in/gold-rates/"
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-US,en;q=0.9"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        html = response.text
+
+        # Extract today's and yesterday's prices
+        today_24k = re.search(r"24K Gold /g ₹([\d,]+)", html)
+        yesterday_24k = re.search(r"24K Gold Rate Per Gram in India.*?Yesterday.*?₹([\d,]+)", html, re.DOTALL)
+
+        today_22k = re.search(r"22K Gold /g ₹([\d,]+)", html)
+        yesterday_22k = re.search(r"22K Gold Rate Per Gram in India.*?Yesterday.*?₹([\d,]+)", html, re.DOTALL)
+
+        def clean(price_match):
+            return float(price_match.group(1).replace(",", "")) if price_match else None
+
+        return {
+            "today_24k": clean(today_24k),
+            "yesterday_24k": clean(yesterday_24k),
+            "today_22k": clean(today_22k),
+            "yesterday_22k": clean(yesterday_22k)
+        }
+
+    except Exception as e:
+        print("Error fetching gold prices:", e)
+        return None
+
+import requests
+import re
+
+def fetch_gold_prices_goodreturns():
+    url = "https://www.goodreturns.in/gold-rates/"
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-US,en;q=0.9"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        html = response.text
+
+        # Extract today's and yesterday's prices using regex
+        today_24k = re.search(r"24K Gold /g ₹([\d,]+)", html)
+        today_22k = re.search(r"22K Gold /g ₹([\d,]+)", html)
+
+        yesterday_24k = re.search(r"24K Gold Rate Per Gram in India.*?Yesterday.*?₹([\d,]+)", html, re.DOTALL)
+        yesterday_22k = re.search(r"22K Gold Rate Per Gram in India.*?Yesterday.*?₹([\d,]+)", html, re.DOTALL)
+
+        def clean(match):
+            return float(match.group(1).replace(",", "")) if match else None
+
+        return {
+            "today_24k": clean(today_24k),
+            "yesterday_24k": clean(yesterday_24k),
+            "today_22k": clean(today_22k),
+            "yesterday_22k": clean(yesterday_22k)
+        }
+
+    except Exception as e:
+        print("Error fetching gold prices:", e)
+        return None
+
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+
+def fetch_gold_trend_7_days():
+    url = "https://goldpricez.com/gold/history/inr/days-7"
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-US,en;q=0.9"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        table = soup.find("table")
+        rows = table.find_all("tr")[1:]  # Skip header
+
+        dates = []
+        prices = []
+
+        for row in rows:
+            cols = row.find_all("td")
+            if len(cols) >= 2:
+                date_str = cols[0].text.strip()
+                price_str = cols[1].text.strip().replace(",", "")
+                try:
+                    date_obj = datetime.strptime(date_str, "%d-%b-%Y")
+                    price = float(price_str)
+                    dates.append(date_obj.strftime("%d-%b"))
+                    prices.append(price)
+                except:
+                    continue
+
+        return dates[::-1], prices[::-1]  # Reverse for chronological order
+    except Exception as e:
+        print("Error fetching gold trend:", e)
+        return [], []
+
+
 # 🖱️ Analyze button
 def analyze_account(df, account_name):
     income = simpledialog.askfloat("Monthly Income", f"Enter your monthly income for {account_name} account (₹):",
@@ -411,7 +567,51 @@ def analyze_account(df, account_name):
                 output.insert(tk.END, msg + "\n")
             speak_suggestions(sell_suggestions)
 
-            export_to_pdf(suggestions + invest_suggestions + equity_suggestions, account_name, savings_data)
+
+
+            # 🪙 Gold price summary
+            prices = fetch_gold_prices_goodreturns()
+
+            def format_price(label, today, yesterday):
+                today_str = f"₹{today:.2f}" if today is not None else "N/A"
+                yesterday_str = f"₹{yesterday:.2f}" if yesterday is not None else "N/A"
+                return f"  - {label} Today: {today_str} | Yesterday: {yesterday_str}"
+
+            if prices:
+                gold_msg = "\n🪙 Gold Prices:\n"
+                gold_msg += format_price("24K", prices.get("today_24k"), prices.get("yesterday_24k")) + "\n"
+                gold_msg += format_price("22K", prices.get("today_22k"), prices.get("yesterday_22k")) + "\n"
+            else:
+                gold_msg = "\n⚠️ Unable to fetch gold prices from Goodreturns.\n"
+
+            output.insert(tk.END, gold_msg)
+            speak_suggestions([gold_msg])
+
+            dates, prices = fetch_gold_trend_7_days()
+            if dates and prices:
+                import matplotlib.pyplot as plt
+
+                plt.figure(figsize=(8, 4))
+                plt.plot(dates, prices, marker='o', color='gold')
+                plt.title("📈 24K Gold Price Trend (Last 7 Days)")
+                plt.xlabel("Date")
+                plt.ylabel("Price (₹/gram)")
+                plt.grid(True)
+                plt.tight_layout()
+                chart_path = "gold_trend_chart.png"
+                plt.savefig(chart_path)
+                plt.close()
+
+                output.insert(tk.END, "\n📈 Gold Price Trend chart saved.\n")
+                # Optionally display in GUI or embed in PDF
+            else:
+                output.insert(tk.END, "\n⚠️ Unable to fetch 7-day gold price trend.\n")
+
+            # 📤 Export to PDF
+            export_to_pdf(suggestions + invest_suggestions + equity_suggestions + sell_suggestions + [gold_msg],
+                          account_name, savings_data)
+
+
 
     except Exception as e:
         output.delete(1.0, tk.END)
