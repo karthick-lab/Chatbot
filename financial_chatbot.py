@@ -9,6 +9,27 @@ from PIL import Image, ImageTk
 import yfinance as yf
 from datetime import datetime, timedelta
 
+import pandas as pd
+
+import pandas as pd
+from datetime import datetime
+
+# Load Excel file from GitHub
+import pandas as pd
+from datetime import datetime
+
+import pandas as pd
+from datetime import datetime
+
+def read_today_gold_data():
+    url = "https://raw.githubusercontent.com/karthick-lab/NewsReader/main/src/test/resources/Data/GoldData.xlsx"
+    df = pd.read_excel(url, header=None)
+    df.columns = ['Date', 'Gold']
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+    df['Gold'] = df['Gold'].astype(str).str.replace('?', 'RS', regex=False)
+    today = datetime.today().date()
+    return df[df['Date'] == today]
+
 # 🔊 Text-to-speech setup
 engine = pyttsx3.init()
 engine.setProperty('rate', 150)
@@ -408,119 +429,50 @@ def suggest_stocks_to_sell_dynamic(max_stocks=10):
         suggestions.append("  - No strong sell signals detected today. Market looks stable.")
     return suggestions
 
-
 import requests
-import re
-from datetime import datetime, timedelta
-
-import requests
-import re
-
-def fetch_gold_prices_goodreturns():
-    url = "https://www.goodreturns.in/gold-rates/"
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-US,en;q=0.9"
-    }
-
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        html = response.text
-
-        # Extract today's and yesterday's prices
-        today_24k = re.search(r"24K Gold /g ₹([\d,]+)", html)
-        yesterday_24k = re.search(r"24K Gold Rate Per Gram in India.*?Yesterday.*?₹([\d,]+)", html, re.DOTALL)
-
-        today_22k = re.search(r"22K Gold /g ₹([\d,]+)", html)
-        yesterday_22k = re.search(r"22K Gold Rate Per Gram in India.*?Yesterday.*?₹([\d,]+)", html, re.DOTALL)
-
-        def clean(price_match):
-            return float(price_match.group(1).replace(",", "")) if price_match else None
-
-        return {
-            "today_24k": clean(today_24k),
-            "yesterday_24k": clean(yesterday_24k),
-            "today_22k": clean(today_22k),
-            "yesterday_22k": clean(yesterday_22k)
-        }
-
-    except Exception as e:
-        print("Error fetching gold prices:", e)
-        return None
-
-import requests
-import re
-
-def fetch_gold_prices_goodreturns():
-    url = "https://www.goodreturns.in/gold-rates/"
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-US,en;q=0.9"
-    }
-
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        html = response.text
-
-        # Extract today's and yesterday's prices using regex
-        today_24k = re.search(r"24K Gold /g ₹([\d,]+)", html)
-        today_22k = re.search(r"22K Gold /g ₹([\d,]+)", html)
-
-        yesterday_24k = re.search(r"24K Gold Rate Per Gram in India.*?Yesterday.*?₹([\d,]+)", html, re.DOTALL)
-        yesterday_22k = re.search(r"22K Gold Rate Per Gram in India.*?Yesterday.*?₹([\d,]+)", html, re.DOTALL)
-
-        def clean(match):
-            return float(match.group(1).replace(",", "")) if match else None
-
-        return {
-            "today_24k": clean(today_24k),
-            "yesterday_24k": clean(yesterday_24k),
-            "today_22k": clean(today_22k),
-            "yesterday_22k": clean(yesterday_22k)
-        }
-
-    except Exception as e:
-        print("Error fetching gold prices:", e)
-        return None
+from bs4 import BeautifulSoup
+from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-def fetch_gold_trend_7_days():
-    url = "https://goldpricez.com/gold/history/inr/days-7"
+def fetch_nse_corporate_actions():
+    url = "https://www.nseindia.com/corporates/corporate-actions"
     headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-US,en;q=0.9"
+        "User-Agent": "Mozilla/5.0"
     }
 
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        session = requests.Session()
+        session.get("https://www.nseindia.com", headers=headers)  # Required to set cookies
+        response = session.get(url, headers=headers, timeout=10)
+
         soup = BeautifulSoup(response.content, "html.parser")
-
         table = soup.find("table")
-        rows = table.find_all("tr")[1:]  # Skip header
+        if not table:
+            raise ValueError("Corporate actions table not found.")
 
-        dates = []
-        prices = []
+        rows = table.find_all("tr")[1:]  # Skip header
+        actions = []
+        today = datetime.today().strftime("%d-%m-%Y")
 
         for row in rows:
             cols = row.find_all("td")
-            if len(cols) >= 2:
-                date_str = cols[0].text.strip()
-                price_str = cols[1].text.strip().replace(",", "")
-                try:
-                    date_obj = datetime.strptime(date_str, "%d-%b-%Y")
-                    price = float(price_str)
-                    dates.append(date_obj.strftime("%d-%b"))
-                    prices.append(price)
-                except:
-                    continue
+            if len(cols) >= 5:
+                action_date = cols[4].text.strip()
+                if action_date == today:
+                    symbol = cols[0].text.strip()
+                    purpose = cols[2].text.strip()
+                    actions.append(f"{symbol}: {purpose} on {action_date}")
 
-        return dates[::-1], prices[::-1]  # Reverse for chronological order
+        return actions
+
     except Exception as e:
-        print("Error fetching gold trend:", e)
-        return [], []
+        print("Error fetching corporate actions from NSE:", e)
+        return []
+
+
 
 
 # 🖱️ Analyze button
@@ -569,46 +521,36 @@ def analyze_account(df, account_name):
 
 
 
-            # 🪙 Gold price summary
-            prices = fetch_gold_prices_goodreturns()
+            #gold_msg = "\n🪙 Check Gold price manually as automating gold trading is banned \n"
+            #output.insert(tk.END, gold_msg + "\n")
+            #speak_suggestions(gold_msg )
 
-            def format_price(label, today, yesterday):
-                today_str = f"₹{today:.2f}" if today is not None else "N/A"
-                yesterday_str = f"₹{yesterday:.2f}" if yesterday is not None else "N/A"
-                return f"  - {label} Today: {today_str} | Yesterday: {yesterday_str}"
+            gold_df = read_today_gold_data()
 
-            if prices:
-                gold_msg = "\n🪙 Gold Prices:\n"
-                gold_msg += format_price("24K", prices.get("today_24k"), prices.get("yesterday_24k")) + "\n"
-                gold_msg += format_price("22K", prices.get("today_22k"), prices.get("yesterday_22k")) + "\n"
+            output.insert(tk.END, "\n--- 📊 Today's Gold Data ---\n")
+            if gold_df.empty:
+                output.insert(tk.END, "⚠️ No gold data found for today.\n")
+                speak_suggestions(["No gold data found for today."])
             else:
-                gold_msg = "\n⚠️ Unable to fetch gold prices from Goodreturns.\n"
+                for _, row in gold_df.iterrows():
+                    msg = f"Gold data on {row['Date']}: {row['Gold']}"
+                    output.insert(tk.END, msg + "\n")
+                    speak_suggestions([msg])
 
-            output.insert(tk.END, gold_msg)
-            speak_suggestions([gold_msg])
-
-            dates, prices = fetch_gold_trend_7_days()
-            if dates and prices:
-                import matplotlib.pyplot as plt
-
-                plt.figure(figsize=(8, 4))
-                plt.plot(dates, prices, marker='o', color='gold')
-                plt.title("📈 24K Gold Price Trend (Last 7 Days)")
-                plt.xlabel("Date")
-                plt.ylabel("Price (₹/gram)")
-                plt.grid(True)
-                plt.tight_layout()
-                chart_path = "gold_trend_chart.png"
-                plt.savefig(chart_path)
-                plt.close()
-
-                output.insert(tk.END, "\n📈 Gold Price Trend chart saved.\n")
-                # Optionally display in GUI or embed in PDF
+            # 📢 Corporate Actions Summary
+            actions = fetch_nse_corporate_actions()
+            if actions:
+                output.insert(tk.END, "\n--- 📢 Corporate Actions Today (NSE) ---\n")
+                for item in actions:
+                    output.insert(tk.END, item + "\n")
+                speak_suggestions(actions)
             else:
-                output.insert(tk.END, "\n⚠️ Unable to fetch 7-day gold price trend.\n")
+                output.insert(tk.END, "\n⚠️ No corporate actions found for today.\n")
+                output.insert(tk.END, "\n⚠️ Go through the news manually as automating trading new is blocked .\n")
+
 
             # 📤 Export to PDF
-            export_to_pdf(suggestions + invest_suggestions + equity_suggestions + sell_suggestions + [gold_msg],
+            export_to_pdf(suggestions + invest_suggestions + equity_suggestions + sell_suggestions + [gold_df],
                           account_name, savings_data)
 
 
