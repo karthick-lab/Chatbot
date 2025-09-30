@@ -220,6 +220,7 @@ def suggest_investments(income):
     return suggestions
 
 # 📊 Equity suggestions
+
 def suggest_dynamic_equity_purchases(investment_budget, max_stocks=5):
     import requests
     from io import StringIO
@@ -270,7 +271,80 @@ def suggest_dynamic_equity_purchases(investment_budget, max_stocks=5):
 
     top_stocks = sorted(results, key=lambda x: x['score'], reverse=True)[:max_stocks]
     split_budget = investment_budget / max_stocks
-    suggestions = [f"\n📊 AI-Picked Equity Suggestions (₹{investment_budget:.2f} budget):"]
+    suggestions = [f"\n📊 AI-Picked Equity Suggestions Average risk and short term (₹{investment_budget:.2f} budget):"]
+
+    for stock in top_stocks:
+        quantity = int(split_budget // stock['price'])
+        total_cost = quantity * stock['price']
+        suggestions.append(
+            f"  - {stock['name']} ({stock['symbol']}): ₹{stock['price']:.2f} → Buy {quantity} shares (₹{total_cost:.2f})"
+        )
+
+    return suggestions
+
+
+
+def suggest_dynamic_equity_purchases_stable_and_dividend(investment_budget, max_stocks=5):
+    import requests
+    from io import StringIO
+
+    def fetch_nse_symbols():
+        url = "https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv"
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.nseindia.com"
+        }
+        try:
+            with requests.Session() as session:
+                session.headers.update(headers)
+                session.get("https://www.nseindia.com", timeout=5)
+                response = session.get(url, timeout=10)
+                if response.status_code == 200:
+                    csv_content = response.content.decode('utf-8')
+                    df = pd.read_csv(StringIO(csv_content))
+                    return df['Symbol'].dropna().tolist()
+        except Exception as e:
+            print("Error fetching NSE symbols:", e)
+        return []
+
+    tickers = fetch_nse_symbols()
+    results = []
+
+    for symbol in tickers:
+        try:
+            full_symbol = symbol + ".NS"
+            stock = yf.Ticker(full_symbol)
+            info = stock.info
+            price = info.get('currentPrice')
+            change = info.get('regularMarketChangePercent')
+            pe_ratio = info.get('trailingPE')
+            volume = info.get('volume')
+            dividend_yield = info.get('dividendYield', 0) or 0
+            payout_ratio = info.get('payoutRatio', 0) or 0
+            roe = info.get('returnOnEquity', 0) or 0
+            earnings_growth = info.get('earningsGrowth', 0) or 0
+
+            if price and price > 0 and change is not None:
+                #score = (change * 0.5) + ((1 / pe_ratio) * 0.3 if pe_ratio else 0) + (volume * 0.00001)
+                score = (
+                        dividend_yield * 0.4 +
+                        (1 - payout_ratio) * 0.2 +
+                        roe * 0.2 +
+                        earnings_growth * 0.2
+                )
+                results.append({
+                    'symbol': full_symbol,
+                    'name': info.get('shortName', symbol),
+                    'price': price,
+                    'score': score
+                })
+        except Exception:
+            continue
+
+    top_stocks = sorted(results, key=lambda x: x['score'], reverse=True)[:max_stocks]
+    split_budget = investment_budget / max_stocks
+    suggestions = [f"\n📊 AI-Picked Equity Suggestions stable and dividend companies (₹{investment_budget:.2f} budget):"]
 
     for stock in top_stocks:
         quantity = int(split_budget // stock['price'])
@@ -404,23 +478,47 @@ def suggest_stocks_to_sell_dynamic(max_stocks=10):
         try:
             full_symbol = symbol + ".NS"
             stock = yf.Ticker(full_symbol)
+            info = stock.info
             hist = stock.history(period="30d")
             close = hist['Close']
+            volume = hist['Volume']
+
             if len(close) < 30:
                 continue
 
+            # Technical indicators
             rsi = compute_rsi(close)
             macd_signal = compute_macd(close)
 
-            if rsi and rsi > 70 or macd_signal == "bearish":
+            # Price trend filter (avoid selling already corrected stocks)
+            price_change = (close.iloc[-1] - close.iloc[0]) / close.iloc[0]
+            if price_change < -0.05:
+                continue
+
+            # Volume filter (skip illiquid stocks)
+            avg_volume = volume.mean()
+            if avg_volume < volume.quantile(0.25):  # dynamic threshold
+                continue
+
+            # Dividend safety filter (skip strong dividend stocks)
+            div_yield = info.get('dividendYield', 0) or 0
+            if div_yield > 0.03:
+                continue
+
+            # Final sell signal
+            if rsi > 70 or macd_signal == "bearish":
                 sell_candidates.append({
                     'symbol': full_symbol,
                     'rsi': round(rsi, 1),
                     'macd': macd_signal,
-                    'reason': f"RSI={rsi:.1f}, MACD={macd_signal}"
+                    'dividend_yield': round(div_yield * 100, 2),
+                    'reason': f"RSI={rsi:.1f}, MACD={macd_signal}, Dividend={div_yield:.2%}"
                 })
+
         except Exception:
             continue
+
+    return sell_candidates[:max_stocks]
 
     suggestions = ["\n📉 Real-Time Stocks to Consider Selling:"]
     for stock in sell_candidates[:max_stocks]:
@@ -514,6 +612,13 @@ def analyze_account(df, account_name):
                 output.insert(tk.END, msg + "\n")
             speak_suggestions(equity_suggestions)
 
+            equity_suggestions = suggest_dynamic_equity_purchases_stable_and_dividend(income * 0.20, max_stocks=10)
+
+            output.insert(tk.END, "\n--- Real-Time Equity Suggestions ---\n")
+            for msg in equity_suggestions:
+                output.insert(tk.END, msg + "\n")
+            speak_suggestions(equity_suggestions)
+
             sell_suggestions = suggest_stocks_to_sell_dynamic()
             for msg in sell_suggestions:
                 output.insert(tk.END, msg + "\n")
@@ -545,8 +650,8 @@ def analyze_account(df, account_name):
                     output.insert(tk.END, item + "\n")
                 speak_suggestions(actions)
             else:
-                output.insert(tk.END, "\n⚠️ No corporate actions found for today.\n")
-                output.insert(tk.END, "\n⚠️ Go through the news manually as automating trading new is blocked .\n")
+                #output.insert(tk.END, "\n⚠️ No corporate actions found for today.\n")
+                output.insert(tk.END, "\n⚠️ Go through the news manually as automating trading news is blocked .\n")
 
 
             # 📤 Export to PDF
