@@ -25,9 +25,11 @@ def read_today_gold_data():
     url = "https://raw.githubusercontent.com/karthick-lab/NewsReader/main/src/test/resources/Data/GoldData.xlsx"
     df = pd.read_excel(url, header=None)
     df.columns = ['Date', 'Gold']
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+    df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y', errors='coerce').dt.strftime('%d-%m-%Y')
+
     df['Gold'] = df['Gold'].astype(str).str.replace('?', 'RS', regex=False)
-    today = datetime.today().date()
+    today = datetime.today().strftime('%d-%m-%Y')
+
     return df[df['Date'] == today]
 
 # 🔊 Text-to-speech setup
