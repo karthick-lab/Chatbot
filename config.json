@@ -1,0 +1,57 @@
+{
+  "gold_path": "https://raw.githubusercontent.com/karthick-lab/NewsReader/main/src/test/resources/Data/GoldData.xlsx",
+  "share_news_path": "C:/Users/admin/Desktop/Javaproject/GoldPriceandStockNews1/NewsReader/src/test/resources/Data/StockNews.xlsx",
+  "stock_suggestions": "https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv",
+  "tracker_path": "C://Users//admin//Desktop//tracker//Tracker.xlsx",
+  "short_term": 15,
+  "long_term": 15,
+
+
+  "-BenchMarks": "Bench mark configuration for expenditure",
+
+  "Raw_Materials": 0.15,
+  "Business_Transportation": 0.15,
+  "Labour": 0.20,
+  "Rent_For_Business": 0.15,
+  "Business_Accessories": 0.10,
+  "Business_Gas": 0.05,
+  "Business_Profit": 0.20,
+
+   "House_Rent": 0.0804,
+   "Eb_Bill": 0.0017,
+   "Grocery": 0.0402,
+   "Blinkit_and_Zepto_expense": 0.0134,
+   "Snacks": 0.0134,
+   "Local_Travel": 0.0134,
+   "Home_Town_Trip_Travel": 0.0336,
+   "Office_food": 0.0336,
+   "Outside_Food": 0.0067,
+   "Trip_Outside_Food": 0.0067,
+   "Gas_Cylinder": 0.0134,
+    "Dress": 0.0201,
+    "Mobile_And_Net_Recharge": 0.0067,
+    "Gifts": 0.0134,
+    "House_Accessories": 0.0201,
+    "Mandatory_Cosmetics": 0.0201,
+    "Skin_Care": 0.0201,
+    "Fitness": 0.0201,
+    "Medical_Expense": 0.0670,
+    "Electronic_Gadgets": 0.0336,
+     "Investment": 0.1541,
+     "Entertainment_Expense": 0.0201,
+     "Entertainment_Recharge(OTT)": 0.0134,
+     "Nonveg": 0.0134,
+     "Unknown": 0.0000,
+     "Donation": 0.0134,
+     "Savings": 0.1508,
+     "Cab": 0.0067,
+     "Petrol": 0.0067,
+     "Education_Expense": 0.1005,
+     "Astrology": 0.1005,
+     "Pooja_Items": 0.1005
+
+
+
+
+
+}
