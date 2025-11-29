@@ -1,6 +1,6 @@
 {
   "gold_path": "https://raw.githubusercontent.com/karthick-lab/NewsReader/main/src/test/resources/Data/GoldData.xlsx",
-  "share_news_path": "C:/Users/admin/Desktop/Javaproject/GoldPriceandStockNews1/NewsReader/src/test/resources/Data/StockNews.xlsx",
+  "share_news_path": "C:/Users/admin/Desktop/AutosaveExcelbatch/RunShareNews/src//test/resources//Data/StockNews.xlsx/StockNews.xlsx",
   "stock_suggestions": "https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv",
   "tracker_path": "C://Users//admin//Desktop//tracker//Tracker.xlsx",
   "short_term": 15,
